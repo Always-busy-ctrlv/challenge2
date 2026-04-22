@@ -1,11 +1,11 @@
-import express from 'express';
+import express, { Application } from 'express';
 import cors from 'cors';
 import { timelineStages } from './data/timeline-stages.js';
 import { glossaryTerms } from './data/glossary-terms.js';
 import { successResponse, errorResponse, fuzzyMatch } from '@elect-ed/shared-utils';
 
-const app = express();
-const PORT = process.env.PORT || 4001;
+const app: Application = express();
+const PORT = process.env.PORT || 8080;
 
 app.use(cors());
 app.use(express.json());

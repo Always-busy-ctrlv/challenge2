@@ -1,10 +1,10 @@
-import express from 'express';
+import express, { Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { successResponse, errorResponse } from '@elect-ed/shared-utils';
 
-const app = express();
-const PORT = process.env.PORT || 4000;
+const app: Application = express();
+const PORT = process.env.PORT || 8080;
 
 const CONTENT_SERVICE_URL = process.env.CONTENT_SERVICE_URL || 'http://localhost:4001';
 const QUIZ_SERVICE_URL = process.env.QUIZ_SERVICE_URL || 'http://localhost:4002';

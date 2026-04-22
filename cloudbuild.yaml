@@ -1,0 +1,25 @@
+steps:
+  # 1. Content Service
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/elect-ed/content-service', '-f', 'services/content-service/Dockerfile', '.']
+  
+  # 2. Quiz Service
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/elect-ed/quiz-service', '-f', 'services/quiz-service/Dockerfile', '.']
+
+  # 3. API Gateway
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/elect-ed/api-gateway', '-f', 'services/api-gateway/Dockerfile', '.']
+
+  # 4. Web App
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/elect-ed/web-app', '-f', 'apps/web/Dockerfile', '.']
+
+images:
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/elect-ed/content-service'
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/elect-ed/quiz-service'
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/elect-ed/api-gateway'
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/elect-ed/web-app'
+
+options:
+  machineType: 'E2_HIGHCPU_8' # Increase build speed for monorepo

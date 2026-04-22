@@ -1,11 +1,11 @@
-import express from 'express';
+import express, { Application } from 'express';
 import cors from 'cors';
 import { quizQuestions } from './data/quiz-questions.js';
 import { successResponse, errorResponse, generateId, calculateScore } from '@elect-ed/shared-utils';
 import type { QuizAttempt, UserAnswer } from '@elect-ed/shared-types';
 
-const app = express();
-const PORT = process.env.PORT || 4002;
+const app: Application = express();
+const PORT = process.env.PORT || 8080;
 
 app.use(cors());
 app.use(express.json());
