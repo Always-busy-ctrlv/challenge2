@@ -24,7 +24,15 @@ steps:
     id: 'Push Quiz Service'
     args: ['push', '--all-tags', 'gcr.io/$PROJECT_ID/quiz-service']
 
-  # ── 2. Deploy Backend to Cloud Run ─────────────────────
+  # Web App (Next.js)
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build Web App'
+    args: ['build', '--no-cache', '-t', 'gcr.io/$PROJECT_ID/web-app:$COMMIT_SHA', '-t', 'gcr.io/$PROJECT_ID/web-app:latest', '-f', 'apps/web/Dockerfile', '.']
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push Web App'
+    args: ['push', '--all-tags', 'gcr.io/$PROJECT_ID/web-app']
+
+  # ── 2. Deploy to Cloud Run ─────────────────────────────
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'Deploy Content Service'
     entrypoint: gcloud
@@ -38,13 +46,11 @@ steps:
       - 'us-central1'
       - '--allow-unauthenticated'
       - '--set-env-vars'
-      - 'GCP_PROJECT_ID=$PROJECT_ID,NODE_ENV=production,LOG_LEVEL=info'
+      - 'GCP_PROJECT_ID=$PROJECT_ID,NODE_ENV=production'
       - '--memory'
       - '512Mi'
       - '--port'
       - '8080'
-      - '--timeout'
-      - '300'
 
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'Deploy Quiz Service'
@@ -59,13 +65,11 @@ steps:
       - 'us-central1'
       - '--allow-unauthenticated'
       - '--set-env-vars'
-      - 'GCP_PROJECT_ID=$PROJECT_ID,NODE_ENV=production,LOG_LEVEL=info'
+      - 'GCP_PROJECT_ID=$PROJECT_ID,NODE_ENV=production'
       - '--memory'
       - '512Mi'
       - '--port'
       - '8080'
-      - '--timeout'
-      - '300'
 
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'Deploy API Gateway'
@@ -80,13 +84,30 @@ steps:
       - 'us-central1'
       - '--allow-unauthenticated'
       - '--set-env-vars'
-      - 'GCP_PROJECT_ID=$PROJECT_ID,NODE_ENV=production,LOG_LEVEL=info'
+      - 'GCP_PROJECT_ID=$PROJECT_ID,NODE_ENV=production'
       - '--memory'
       - '512Mi'
       - '--port'
       - '8080'
-      - '--timeout'
-      - '300'
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Deploy Web App'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'web-app'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/web-app:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'NODE_ENV=production'
+      - '--memory'
+      - '512Mi'
+      - '--port'
+      - '3000'
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -95,3 +116,4 @@ images:
   - 'gcr.io/$PROJECT_ID/api-gateway:$COMMIT_SHA'
   - 'gcr.io/$PROJECT_ID/content-service:$COMMIT_SHA'
   - 'gcr.io/$PROJECT_ID/quiz-service:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/web-app:$COMMIT_SHA'
