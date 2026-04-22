@@ -15,11 +15,15 @@
     "@elect-ed/shared-types": "workspace:*",
     "@elect-ed/shared-utils": "workspace:*",
     "@elect-ed/shared-validation": "workspace:*",
+    "@elect-ed/shared-firebase": "workspace:*",
+    "compression": "^1.8.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
+    "helmet": "^8.1.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@types/compression": "^1.7.5",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^20",

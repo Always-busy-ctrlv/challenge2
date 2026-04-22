@@ -69,7 +69,7 @@ export default function GlossaryPage() {
       </div>
 
       {/* Search */}
-      <div style={{ maxWidth:600, margin:"0 auto 2rem", position:"relative" }}>
+      <div role="search" style={{ maxWidth:600, margin:"0 auto 2rem", position:"relative" }}>
         <input
           type="search"
           placeholder="Search terms..."
@@ -148,7 +148,7 @@ export default function GlossaryPage() {
       )}
 
       {/* Count */}
-      <div style={{ textAlign:"center", marginTop:"2rem", color:"var(--text-muted)", fontSize:"0.875rem" }}>
+      <div aria-live="polite" style={{ textAlign:"center", marginTop:"2rem", color:"var(--text-muted)", fontSize:"0.875rem" }}>
         Showing {filtered.length} of {TERMS.length} terms
       </div>
     </div>

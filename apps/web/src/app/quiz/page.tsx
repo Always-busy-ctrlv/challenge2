@@ -99,12 +99,12 @@ function QuizContent() {
 
   if (quizState === "results") return (
     <div className="container section">
-      <div className="animate-fade-in-up" style={{ maxWidth:640, margin:"0 auto", textAlign:"center", display:"flex", flexDirection:"column", alignItems:"center", gap:"1.5rem" }}>
+      <div className="animate-fade-in-up" aria-live="polite" style={{ maxWidth:640, margin:"0 auto", textAlign:"center", display:"flex", flexDirection:"column", alignItems:"center", gap:"1.5rem" }}>
         <div style={{ fontSize:"4rem" }}>{pct >= 70 ? "🎉" : "📚"}</div>
         <h1 style={{ fontFamily:"var(--font-display)", fontSize:"2rem", fontWeight:900 }}>{pct >= 70 ? "Congratulations!" : "Keep Learning!"}</h1>
         <p style={{ color:"var(--text-secondary)" }}>{pct >= 70 ? `You passed the ${info.title} quiz!` : "Review the material and try again."}</p>
         <div style={{ position:"relative", display:"flex", alignItems:"center", justifyContent:"center" }}>
-          <svg viewBox="0 0 120 120" style={{ width:160, height:160 }}>
+          <svg viewBox="0 0 120 120" style={{ width:160, height:160 }} role="img" aria-label={`Score: ${pct} percent`}>
             <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8" />
             <circle cx="60" cy="60" r="52" fill="none" stroke={pct >= 70 ? "#10b981" : "#ef4444"} strokeWidth="8" strokeLinecap="round" strokeDasharray={`${(pct / 100) * 327} 327`} transform="rotate(-90 60 60)" style={{ transition:"stroke-dasharray 1s" }} />
           </svg>
@@ -169,7 +169,7 @@ function QuizContent() {
           })}
         </div>
         {revealed && (
-          <div className="animate-fade-in-up" style={{ display:"flex", gap:"0.75rem", padding:"1rem 1.25rem", background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.06)", borderRadius:"var(--radius-md)" }}>
+          <div className="animate-fade-in-up" aria-live="polite" style={{ display:"flex", gap:"0.75rem", padding:"1rem 1.25rem", background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.06)", borderRadius:"var(--radius-md)" }}>
             <span style={{ fontSize:"1.5rem" }}>{selected === q.correctIndex ? "✅" : "💡"}</span>
             <div>
               <p style={{ fontWeight:600, marginBottom:"0.25rem" }}>{selected === q.correctIndex ? "Correct!" : "Not quite!"}</p>

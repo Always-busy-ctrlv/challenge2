@@ -1,25 +1,124 @@
 steps:
-  # 1. Content Service
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/elect-ed/content-service', '-f', 'services/content-service/Dockerfile', '.']
-  
-  # 2. Quiz Service
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/elect-ed/quiz-service', '-f', 'services/quiz-service/Dockerfile', '.']
+  # ── 1. Install Dependencies ────────────────────────────
+  - name: 'node:20-slim'
+    id: 'Install deps'
+    entrypoint: 'npm'
+    args: ['install', '-g', 'pnpm', 'turbo']
+  - name: 'node:20-slim'
+    id: 'pnpm install'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - 'corepack enable && pnpm install --frozen-lockfile'
 
-  # 3. API Gateway
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/elect-ed/api-gateway', '-f', 'services/api-gateway/Dockerfile', '.']
+  # ── 2. Run Quality Checks (Lint, Typecheck, Test) ──────
+  - name: 'node:20-slim'
+    id: 'Type Check'
+    entrypoint: 'sh'
+    args: ['-c', 'corepack enable && npx turbo type-check']
+  - name: 'node:20-slim'
+    id: 'Lint'
+    entrypoint: 'sh'
+    args: ['-c', 'corepack enable && npx turbo lint']
+  - name: 'node:20-slim'
+    id: 'Test'
+    entrypoint: 'sh'
+    args: ['-c', 'corepack enable && npx turbo test']
 
-  # 4. Web App
+  # ── 3. Build & Push Docker Images ──────────────────────
+  # API Gateway
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/elect-ed/web-app', '-f', 'apps/web/Dockerfile', '.']
+    id: 'Build API Gateway Image'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/api-gateway:$COMMIT_SHA', '-f', 'services/api-gateway/Dockerfile', '.']
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push API Gateway Image'
+    args: ['push', 'gcr.io/$PROJECT_ID/api-gateway:$COMMIT_SHA']
 
-images:
-  - 'us-central1-docker.pkg.dev/$PROJECT_ID/elect-ed/content-service'
-  - 'us-central1-docker.pkg.dev/$PROJECT_ID/elect-ed/quiz-service'
-  - 'us-central1-docker.pkg.dev/$PROJECT_ID/elect-ed/api-gateway'
-  - 'us-central1-docker.pkg.dev/$PROJECT_ID/elect-ed/web-app'
+  # Content Service
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build Content Service Image'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/content-service:$COMMIT_SHA', '-f', 'services/content-service/Dockerfile', '.']
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push Content Service Image'
+    args: ['push', 'gcr.io/$PROJECT_ID/content-service:$COMMIT_SHA']
+
+  # Quiz Service
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build Quiz Service Image'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/quiz-service:$COMMIT_SHA', '-f', 'services/quiz-service/Dockerfile', '.']
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push Quiz Service Image'
+    args: ['push', 'gcr.io/$PROJECT_ID/quiz-service:$COMMIT_SHA']
+
+  # ── 4. Deploy Backend to Cloud Run ─────────────────────
+  # Content Service Deploy
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Deploy Content Service'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'content-service'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/content-service:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'GCP_PROJECT_ID=$PROJECT_ID,NODE_ENV=production,LOG_LEVEL=info'
+
+  # Quiz Service Deploy
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Deploy Quiz Service'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'quiz-service'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/quiz-service:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'GCP_PROJECT_ID=$PROJECT_ID,NODE_ENV=production,LOG_LEVEL=info'
+
+  # API Gateway Deploy
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Deploy API Gateway'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'api-gateway'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/api-gateway:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'GCP_PROJECT_ID=$PROJECT_ID,NODE_ENV=production,LOG_LEVEL=info,CONTENT_SERVICE_URL=https://content-service-xxx.run.app,QUIZ_SERVICE_URL=https://quiz-service-xxx.run.app' # URLs should be updated post-deployment via secrets or env vars
+
+  # ── 5. Build Web App ───────────────────────────────────
+  - name: 'node:20-slim'
+    id: 'Build Web App'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - 'corepack enable && pnpm --filter @elect-ed/web build'
+    env:
+      - 'NEXT_PUBLIC_FIREBASE_API_KEY=demo-api-key'
+      - 'NEXT_PUBLIC_FIREBASE_PROJECT_ID=$PROJECT_ID'
+
+  # ── 6. Deploy to Firebase ──────────────────────────────
+  - name: 'node:20-slim'
+    id: 'Deploy Firebase Rules & Hosting'
+    entrypoint: 'npx'
+    args: ['firebase-tools', 'deploy', '--project', '$PROJECT_ID', '--only', 'firestore,hosting']
 
 options:
-  machineType: 'E2_HIGHCPU_8' # Increase build speed for monorepo
+  logging: CLOUD_LOGGING_ONLY
+images:
+  - 'gcr.io/$PROJECT_ID/api-gateway:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/content-service:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/quiz-service:$COMMIT_SHA'

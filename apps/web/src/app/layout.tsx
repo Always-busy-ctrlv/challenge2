@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { FirebaseProvider } from "../lib/firebase-context";
+import { Header } from "../components/Header";
 
 export const metadata: Metadata = {
   title: "ElectEd — Your Election Education Assistant",
@@ -11,6 +13,7 @@ export const metadata: Metadata = {
     description: "Learn how elections work — from registration to results.",
     type: "website",
   },
+  robots: { index: true, follow: true },
 };
 
 export default function RootLayout({
@@ -24,95 +27,25 @@ export default function RootLayout({
         <a href="#main-content" className="skip-link">
           Skip to main content
         </a>
-        <Header />
-        <main id="main-content">{children}</main>
-        <Footer />
+        <FirebaseProvider>
+          <Header />
+          <main id="main-content" role="main">{children}</main>
+          <Footer />
+        </FirebaseProvider>
       </body>
     </html>
   );
 }
 
-/* ── Header Component ────────────────────────── */
-function Header() {
-  return (
-    <header style={headerStyles.header}>
-      <nav className="container" style={headerStyles.nav} aria-label="Main navigation">
-        <a href="/" style={headerStyles.logo}>
-          <span style={headerStyles.logoIcon}>🗳️</span>
-          <span style={headerStyles.logoText}>
-            Elect<span style={headerStyles.logoAccent}>Ed</span>
-          </span>
-        </a>
 
-        <div style={headerStyles.links}>
-          <a href="/timeline" style={headerStyles.navLink}>Timeline</a>
-          <a href="/quiz" style={headerStyles.navLink}>Quizzes</a>
-          <a href="/glossary" style={headerStyles.navLink}>Glossary</a>
-          <a href="/timeline" className="btn btn-primary" style={{ fontSize: '0.875rem', padding: '0.5rem 1.25rem' }}>
-            Start Learning
-          </a>
-        </div>
-      </nav>
-    </header>
-  );
-}
 
-const headerStyles: Record<string, React.CSSProperties> = {
-  header: {
-    position: 'sticky',
-    top: 0,
-    zIndex: 100,
-    background: 'rgba(10, 14, 26, 0.8)',
-    backdropFilter: 'blur(20px)',
-    WebkitBackdropFilter: 'blur(20px)',
-    borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
-  },
-  nav: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    height: '72px',
-  },
-  logo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-    textDecoration: 'none',
-    color: 'var(--text-primary)',
-  },
-  logoIcon: {
-    fontSize: '1.75rem',
-  },
-  logoText: {
-    fontFamily: 'var(--font-display)',
-    fontSize: '1.5rem',
-    fontWeight: 800,
-    letterSpacing: '-0.03em',
-  },
-  logoAccent: {
-    color: 'var(--color-primary-400)',
-  },
-  links: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '2rem',
-  },
-  navLink: {
-    color: 'var(--text-secondary)',
-    textDecoration: 'none',
-    fontSize: '0.9375rem',
-    fontWeight: 500,
-    transition: 'color 0.2s',
-  },
-};
-
-/* ── Footer Component ────────────────────────── */
+/* ── Footer Component ────────────────────────────────────── */
 function Footer() {
   return (
-    <footer style={footerStyles.footer}>
+    <footer style={footerStyles.footer} role="contentinfo">
       <div className="container" style={footerStyles.inner}>
         <div style={footerStyles.brand}>
-          <span style={{ fontSize: '1.5rem' }}>🗳️</span>
+          <span style={{ fontSize: '1.5rem' }} aria-hidden="true">🗳️</span>
           <span style={footerStyles.brandText}>
             Elect<span style={{ color: 'var(--color-primary-400)' }}>Ed</span>
           </span>
@@ -137,11 +70,20 @@ function Footer() {
               USA.gov ↗
             </a>
           </div>
+          <div>
+            <h4 style={footerStyles.linksHeading}>Platform</h4>
+            <span style={{ ...footerStyles.footerLink, display: 'block' }}>
+              Powered by Google Cloud
+            </span>
+            <span style={{ ...footerStyles.footerLink, display: 'block' }}>
+              Firebase • Vertex AI • Cloud Run
+            </span>
+          </div>
         </div>
 
         <div style={footerStyles.bottom}>
           <p style={footerStyles.copyright}>
-            © {new Date().getFullYear()} ElectEd. Built for civic empowerment.
+            © {new Date().getFullYear()} ElectEd. Built for civic empowerment. Hosted on Google Cloud Platform.
           </p>
           <p style={footerStyles.disclaimer}>
             ElectEd is an educational tool. Always verify information with official government sources.
@@ -183,6 +125,7 @@ const footerStyles: Record<string, React.CSSProperties> = {
   linksGroup: {
     display: 'flex',
     gap: '4rem',
+    flexWrap: 'wrap',
   },
   linksHeading: {
     fontFamily: 'var(--font-display)',
