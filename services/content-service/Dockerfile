@@ -17,7 +17,11 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 appuser
 
+# Copy workspace structure needed for module resolution
+COPY --from=builder --chown=appuser:nodejs /app/package.json ./package.json
+COPY --from=builder --chown=appuser:nodejs /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 COPY --from=builder --chown=appuser:nodejs /app/services/content-service/dist ./services/content-service/dist
+COPY --from=builder --chown=appuser:nodejs /app/services/content-service/package.json ./services/content-service/package.json
 COPY --from=builder --chown=appuser:nodejs /app/packages ./packages
 COPY --from=builder --chown=appuser:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=appuser:nodejs /app/services/content-service/node_modules ./services/content-service/node_modules
