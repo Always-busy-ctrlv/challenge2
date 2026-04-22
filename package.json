@@ -1,0 +1,43 @@
+{
+  "name": "elect-ed",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ElectEd — Election Process Education Assistant",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "test:watch": "turbo test:watch",
+    "type-check": "turbo type-check",
+    "clean": "turbo clean",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\""
+  },
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [
+    "election",
+    "education",
+    "civic",
+    "gcp"
+  ],
+  "author": "ElectEd Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/jest": "^30.0.0",
+    "@types/supertest": "^7.2.0",
+    "jest": "^30.3.0",
+    "jest-axe": "^10.0.0",
+    "jest-environment-jsdom": "^30.3.0",
+    "jest-environment-node": "^30.3.0",
+    "nock": "^14.0.13",
+    "supertest": "^7.2.2",
+    "ts-jest": "^29.4.9",
+    "ts-node": "^10.9.2"
+  }
+}
