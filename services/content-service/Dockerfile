@@ -26,7 +26,7 @@ USER appuser
 
 EXPOSE 8080
 ENV PORT=8080
-ENV GCP_PROJECT_ID=elected2026app
+ENV GCP_PROJECT_ID=titanium-link-459809-e5
 
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
   CMD node -e "fetch('http://localhost:8080/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"

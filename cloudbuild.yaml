@@ -1,57 +1,30 @@
 steps:
-  # ── 1. Install Dependencies ────────────────────────────
-  - name: 'node:20-slim'
-    id: 'Install deps'
-    entrypoint: 'npm'
-    args: ['install', '-g', 'pnpm', 'turbo']
-  - name: 'node:20-slim'
-    id: 'pnpm install'
-    entrypoint: 'sh'
-    args:
-      - '-c'
-      - 'corepack enable && pnpm install --frozen-lockfile'
-
-  # ── 2. Run Quality Checks (Lint, Typecheck, Test) ──────
-  - name: 'node:20-slim'
-    id: 'Type Check'
-    entrypoint: 'sh'
-    args: ['-c', 'corepack enable && npx turbo type-check']
-  - name: 'node:20-slim'
-    id: 'Lint'
-    entrypoint: 'sh'
-    args: ['-c', 'corepack enable && npx turbo lint']
-  - name: 'node:20-slim'
-    id: 'Test'
-    entrypoint: 'sh'
-    args: ['-c', 'corepack enable && npx turbo test']
-
-  # ── 3. Build & Push Docker Images ──────────────────────
+  # ── 1. Build & Push Docker Images ──────────────────────
   # API Gateway
   - name: 'gcr.io/cloud-builders/docker'
-    id: 'Build API Gateway Image'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/api-gateway:$COMMIT_SHA', '-f', 'services/api-gateway/Dockerfile', '.']
+    id: 'Build API Gateway'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/api-gateway:$COMMIT_SHA', '-t', 'gcr.io/$PROJECT_ID/api-gateway:latest', '-f', 'services/api-gateway/Dockerfile', '.']
   - name: 'gcr.io/cloud-builders/docker'
-    id: 'Push API Gateway Image'
-    args: ['push', 'gcr.io/$PROJECT_ID/api-gateway:$COMMIT_SHA']
+    id: 'Push API Gateway'
+    args: ['push', '--all-tags', 'gcr.io/$PROJECT_ID/api-gateway']
 
   # Content Service
   - name: 'gcr.io/cloud-builders/docker'
-    id: 'Build Content Service Image'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/content-service:$COMMIT_SHA', '-f', 'services/content-service/Dockerfile', '.']
+    id: 'Build Content Service'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/content-service:$COMMIT_SHA', '-t', 'gcr.io/$PROJECT_ID/content-service:latest', '-f', 'services/content-service/Dockerfile', '.']
   - name: 'gcr.io/cloud-builders/docker'
-    id: 'Push Content Service Image'
-    args: ['push', 'gcr.io/$PROJECT_ID/content-service:$COMMIT_SHA']
+    id: 'Push Content Service'
+    args: ['push', '--all-tags', 'gcr.io/$PROJECT_ID/content-service']
 
   # Quiz Service
   - name: 'gcr.io/cloud-builders/docker'
-    id: 'Build Quiz Service Image'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/quiz-service:$COMMIT_SHA', '-f', 'services/quiz-service/Dockerfile', '.']
+    id: 'Build Quiz Service'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/quiz-service:$COMMIT_SHA', '-t', 'gcr.io/$PROJECT_ID/quiz-service:latest', '-f', 'services/quiz-service/Dockerfile', '.']
   - name: 'gcr.io/cloud-builders/docker'
-    id: 'Push Quiz Service Image'
-    args: ['push', 'gcr.io/$PROJECT_ID/quiz-service:$COMMIT_SHA']
+    id: 'Push Quiz Service'
+    args: ['push', '--all-tags', 'gcr.io/$PROJECT_ID/quiz-service']
 
-  # ── 4. Deploy Backend to Cloud Run ─────────────────────
-  # Content Service Deploy
+  # ── 2. Deploy Backend to Cloud Run ─────────────────────
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'Deploy Content Service'
     entrypoint: gcloud
@@ -66,8 +39,11 @@ steps:
       - '--allow-unauthenticated'
       - '--set-env-vars'
       - 'GCP_PROJECT_ID=$PROJECT_ID,NODE_ENV=production,LOG_LEVEL=info'
+      - '--memory'
+      - '512Mi'
+      - '--port'
+      - '8080'
 
-  # Quiz Service Deploy
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'Deploy Quiz Service'
     entrypoint: gcloud
@@ -82,8 +58,11 @@ steps:
       - '--allow-unauthenticated'
       - '--set-env-vars'
       - 'GCP_PROJECT_ID=$PROJECT_ID,NODE_ENV=production,LOG_LEVEL=info'
+      - '--memory'
+      - '512Mi'
+      - '--port'
+      - '8080'
 
-  # API Gateway Deploy
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'Deploy API Gateway'
     entrypoint: gcloud
@@ -97,27 +76,15 @@ steps:
       - 'us-central1'
       - '--allow-unauthenticated'
       - '--set-env-vars'
-      - 'GCP_PROJECT_ID=$PROJECT_ID,NODE_ENV=production,LOG_LEVEL=info,CONTENT_SERVICE_URL=https://content-service-xxx.run.app,QUIZ_SERVICE_URL=https://quiz-service-xxx.run.app' # URLs should be updated post-deployment via secrets or env vars
-
-  # ── 5. Build Web App ───────────────────────────────────
-  - name: 'node:20-slim'
-    id: 'Build Web App'
-    entrypoint: 'sh'
-    args:
-      - '-c'
-      - 'corepack enable && pnpm --filter @elect-ed/web build'
-    env:
-      - 'NEXT_PUBLIC_FIREBASE_API_KEY=demo-api-key'
-      - 'NEXT_PUBLIC_FIREBASE_PROJECT_ID=$PROJECT_ID'
-
-  # ── 6. Deploy to Firebase ──────────────────────────────
-  - name: 'node:20-slim'
-    id: 'Deploy Firebase Rules & Hosting'
-    entrypoint: 'npx'
-    args: ['firebase-tools', 'deploy', '--project', '$PROJECT_ID', '--only', 'firestore,hosting']
+      - 'GCP_PROJECT_ID=$PROJECT_ID,NODE_ENV=production,LOG_LEVEL=info'
+      - '--memory'
+      - '512Mi'
+      - '--port'
+      - '8080'
 
 options:
   logging: CLOUD_LOGGING_ONLY
+
 images:
   - 'gcr.io/$PROJECT_ID/api-gateway:$COMMIT_SHA'
   - 'gcr.io/$PROJECT_ID/content-service:$COMMIT_SHA'

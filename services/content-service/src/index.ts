@@ -139,7 +139,7 @@ app.get('/api/glossary/:slug', (req, res) => {
 
   // Resolve related terms
   const related = term.relatedTerms
-    .map((slug) => glossaryBySlug.get(slug) || glossaryById.get(slug))
+    .map((slug: string) => glossaryBySlug.get(slug) || glossaryById.get(slug))
     .filter(Boolean);
 
   res.setHeader('Cache-Control', 'public, max-age=3600');
