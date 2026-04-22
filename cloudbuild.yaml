@@ -1,12 +1,30 @@
 steps:
-  # Build Content Service image only — with --no-cache to force fresh build
+  # ── 1. Build & Push Docker Images ──────────────────────
+  # API Gateway
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build API Gateway'
+    args: ['build', '--no-cache', '-t', 'gcr.io/$PROJECT_ID/api-gateway:$COMMIT_SHA', '-t', 'gcr.io/$PROJECT_ID/api-gateway:latest', '-f', 'services/api-gateway/Dockerfile', '.']
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push API Gateway'
+    args: ['push', '--all-tags', 'gcr.io/$PROJECT_ID/api-gateway']
+
+  # Content Service
   - name: 'gcr.io/cloud-builders/docker'
     id: 'Build Content Service'
-    args: ['build', '--no-cache', '-t', 'gcr.io/$PROJECT_ID/content-service:v4', '-f', 'services/content-service/Dockerfile', '.']
+    args: ['build', '--no-cache', '-t', 'gcr.io/$PROJECT_ID/content-service:$COMMIT_SHA', '-t', 'gcr.io/$PROJECT_ID/content-service:latest', '-f', 'services/content-service/Dockerfile', '.']
   - name: 'gcr.io/cloud-builders/docker'
     id: 'Push Content Service'
-    args: ['push', 'gcr.io/$PROJECT_ID/content-service:v4']
-  # Deploy to Cloud Run with increased timeout
+    args: ['push', '--all-tags', 'gcr.io/$PROJECT_ID/content-service']
+
+  # Quiz Service
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build Quiz Service'
+    args: ['build', '--no-cache', '-t', 'gcr.io/$PROJECT_ID/quiz-service:$COMMIT_SHA', '-t', 'gcr.io/$PROJECT_ID/quiz-service:latest', '-f', 'services/quiz-service/Dockerfile', '.']
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push Quiz Service'
+    args: ['push', '--all-tags', 'gcr.io/$PROJECT_ID/quiz-service']
+
+  # ── 2. Deploy Backend to Cloud Run ─────────────────────
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'Deploy Content Service'
     entrypoint: gcloud
@@ -15,7 +33,49 @@ steps:
       - 'deploy'
       - 'content-service'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/content-service:v4'
+      - 'gcr.io/$PROJECT_ID/content-service:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'GCP_PROJECT_ID=$PROJECT_ID,NODE_ENV=production,LOG_LEVEL=info'
+      - '--memory'
+      - '512Mi'
+      - '--port'
+      - '8080'
+      - '--timeout'
+      - '300'
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Deploy Quiz Service'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'quiz-service'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/quiz-service:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'GCP_PROJECT_ID=$PROJECT_ID,NODE_ENV=production,LOG_LEVEL=info'
+      - '--memory'
+      - '512Mi'
+      - '--port'
+      - '8080'
+      - '--timeout'
+      - '300'
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Deploy API Gateway'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'api-gateway'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/api-gateway:$COMMIT_SHA'
       - '--region'
       - 'us-central1'
       - '--allow-unauthenticated'
@@ -30,3 +90,8 @@ steps:
 
 options:
   logging: CLOUD_LOGGING_ONLY
+
+images:
+  - 'gcr.io/$PROJECT_ID/api-gateway:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/content-service:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/quiz-service:$COMMIT_SHA'
