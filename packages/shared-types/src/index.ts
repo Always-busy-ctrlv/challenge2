@@ -168,3 +168,16 @@ export interface HealthCheck {
   uptime: number;
   timestamp: string;
 }
+
+// ── Authenticated Request Extension ─────────
+/**
+ * Typed extension of Express Request with auth and tracing fields.
+ * Eliminates unsafe `(req as any)` casts across services.
+ */
+export interface AuthenticatedRequest {
+  requestId: string;
+  traceId: string;
+  userId?: string;
+  userEmail?: string;
+  validatedQuery?: unknown;
+}

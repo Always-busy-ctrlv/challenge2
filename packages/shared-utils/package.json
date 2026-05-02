@@ -21,6 +21,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@elect-ed/shared-types": "workspace:*",
     "zod": "^3.23.0"
   },
   "devDependencies": {

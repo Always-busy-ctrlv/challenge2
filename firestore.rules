@@ -2,9 +2,10 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ── Quiz Attempts: authenticated users can write, anyone can read ──
+    // ── Quiz Attempts: authenticated users can read own, create with validation ──
     match /quiz_attempts/{attemptId} {
-      allow read: if true;
+      allow read: if request.auth != null
+        && resource.data.userId == request.auth.uid;
       allow create: if request.auth != null
         && request.resource.data.keys().hasAll(['stageId', 'score', 'totalQuestions', 'completedAt'])
         && request.resource.data.score is number
@@ -13,9 +14,9 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // ── User Progress: users can read/write their own ──
+    // ── User Progress: users can read/write only their own ──
     match /user_progress/{userId} {
-      allow read: if true;
+      allow read: if request.auth != null && request.auth.uid == userId;
       allow write: if request.auth != null && request.auth.uid == userId;
     }
 
@@ -25,11 +26,12 @@ service cloud.firestore {
       allow write: if false; // Only server-side writes via Admin SDK
     }
 
-    // ── AI Chat Sessions: user-scoped ──
+    // ── AI Chat Sessions: user-scoped, create must match auth ──
     match /chat_sessions/{sessionId} {
       allow read: if request.auth != null
         && resource.data.userId == request.auth.uid;
-      allow create: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid;
       allow update: if request.auth != null
         && resource.data.userId == request.auth.uid;
       allow delete: if false;

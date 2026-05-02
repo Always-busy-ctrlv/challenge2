@@ -6,12 +6,14 @@
  * - Structured request logging (GCP-compatible)
  * - Zod-based input validation
  * - Standardized error handling
- * - Security headers (helmet wrapper)
- * - CORS configuration
+ * - Input sanitization (XSS / injection defense)
+ * - Common middleware factory (helmet, cors, compression)
+ * - Graceful shutdown
  */
 
 import type { Request, Response, NextFunction, ErrorRequestHandler } from 'express';
 import type { ZodSchema, ZodError } from 'zod';
+import type { AuthenticatedRequest } from '@elect-ed/shared-types';
 import { errorResponse } from './index.js';
 
 // ── Request ID Middleware ────────────────────────────────
@@ -25,9 +27,10 @@ export function requestIdMiddleware(req: Request, res: Response, next: NextFunct
 
   res.setHeader('X-Request-Id', requestId);
 
-  // Attach to request for downstream use
-  (req as any).requestId = requestId;
-  (req as any).traceId = traceHeader?.split('/')[0] || requestId;
+  // Attach to request for downstream use (typed via AuthenticatedRequest)
+  const typedReq = req as Request & AuthenticatedRequest;
+  typedReq.requestId = requestId;
+  typedReq.traceId = traceHeader?.split('/')[0] || requestId;
 
   next();
 }
@@ -42,6 +45,7 @@ export function createRequestLogger(logger: { info: (...args: unknown[]) => void
 
     res.on('finish', () => {
       const duration = Date.now() - start;
+      const typedReq = req as Request & AuthenticatedRequest;
       logger.info('request', {
         httpRequest: {
           requestMethod: req.method,
@@ -52,8 +56,8 @@ export function createRequestLogger(logger: { info: (...args: unknown[]) => void
           latency: `${duration}ms`,
           protocol: req.protocol,
         },
-        requestId: (req as any).requestId,
-        traceId: (req as any).traceId,
+        requestId: typedReq.requestId,
+        traceId: typedReq.traceId,
       });
     });
 
@@ -100,7 +104,8 @@ export function validateQuery(schema: ZodSchema) {
       res.status(400).json(errorResponse('VALIDATION_ERROR', 'Query validation failed', details));
       return;
     }
-    (req as any).validatedQuery = result.data;
+    const typedReq = req as Request & AuthenticatedRequest;
+    typedReq.validatedQuery = result.data;
     next();
   };
 }
@@ -108,31 +113,38 @@ export function validateQuery(schema: ZodSchema) {
 // ── Input Sanitization ──────────────────────────────────
 /**
  * Sanitize string inputs to prevent XSS / injection.
+ * Defends against: HTML tags, JS protocol, event handlers,
+ * null bytes, HTML entities, and unicode normalization attacks.
  */
-export function sanitizeString(input: string): string {
+export function sanitizeString(input: string, maxLength: number = 1000): string {
   return input
-    .replace(/[<>]/g, '') // Strip HTML angle brackets
-    .replace(/javascript:/gi, '') // Remove JS protocol
-    .replace(/on\w+=/gi, '') // Remove event handlers
+    .normalize('NFC')                    // Normalize unicode to canonical form
+    .replace(/\0/g, '')                  // Strip null bytes
+    .replace(/&#?\w+;/g, '')             // Strip HTML entities (&#60; &lt; etc.)
+    .replace(/[<>]/g, '')                // Strip HTML angle brackets
+    .replace(/javascript:/gi, '')        // Remove JS protocol
+    .replace(/on\w+=/gi, '')             // Remove event handlers (onclick=, onerror=, etc.)
     .trim()
-    .slice(0, 1000); // Max length guard
+    .slice(0, maxLength);                // Max length guard
 }
 
 // ── Standardized Error Handler ──────────────────────────
 /**
  * Express error handler that produces consistent error responses.
  * In production, masks internal error details.
+ * Maps HTTP status codes to semantic error codes.
  */
 export function createErrorHandler(logger: { error: (...args: unknown[]) => void }): ErrorRequestHandler {
   return (err: any, req: Request, res: Response, _next: NextFunction): void => {
     const statusCode = err.status || err.statusCode || 500;
     const isProduction = process.env.NODE_ENV === 'production';
+    const typedReq = req as Request & AuthenticatedRequest;
 
     if (statusCode >= 500) {
       logger.error('unhandled_error', {
         error: err.message,
         stack: err.stack,
-        requestId: (req as any).requestId,
+        requestId: typedReq.requestId,
         path: req.path,
         method: req.method,
       });
@@ -142,10 +154,15 @@ export function createErrorHandler(logger: { error: (...args: unknown[]) => void
       ? 'An unexpected error occurred'
       : err.message || 'An unexpected error occurred';
 
-    const code = statusCode === 400 ? 'BAD_REQUEST'
-      : statusCode === 413 ? 'PAYLOAD_TOO_LARGE'
-      : statusCode === 429 ? 'RATE_LIMIT'
-      : 'INTERNAL_ERROR';
+    const codeMap: Record<number, string> = {
+      400: 'BAD_REQUEST',
+      401: 'UNAUTHORIZED',
+      403: 'FORBIDDEN',
+      404: 'NOT_FOUND',
+      413: 'PAYLOAD_TOO_LARGE',
+      429: 'RATE_LIMIT',
+    };
+    const code = codeMap[statusCode] || 'INTERNAL_ERROR';
 
     res.status(statusCode).json(errorResponse(code, message));
   };
@@ -154,6 +171,80 @@ export function createErrorHandler(logger: { error: (...args: unknown[]) => void
 // ── 404 Handler ─────────────────────────────────────────
 export function notFoundHandler(req: Request, res: Response): void {
   res.status(404).json(errorResponse('NOT_FOUND', `Endpoint ${req.method} ${req.path} not found`));
+}
+
+// ── Common Middleware Factory ────────────────────────────
+/**
+ * Creates the standard middleware stack shared across all services.
+ * Eliminates duplicate helmet/cors/compression/json setup.
+ */
+export interface CommonMiddlewareOptions {
+  /** CORS origin (default: env CORS_ORIGIN or http://localhost:3000) */
+  corsOrigin?: string;
+  /** JSON body size limit (default: '10kb') */
+  jsonLimit?: string;
+  /** Logger instance for request logging */
+  logger: { info: (...args: unknown[]) => void };
+  /** Additional CSP connect-src directives */
+  cspConnectSrc?: string[];
+  /** Whether running in production (default: auto-detect from NODE_ENV) */
+  isProduction?: boolean;
+}
+
+/**
+ * Returns an ordered array of middleware functions for Express.
+ * Requires helmet, cors, compression to be passed in to avoid
+ * this package depending on those heavy libraries directly.
+ */
+export function createCommonMiddleware(
+  deps: {
+    helmet: (opts: any) => any;
+    cors: (opts: any) => any;
+    compression: () => any;
+    express: { json: (opts: any) => any };
+  },
+  options: CommonMiddlewareOptions,
+) {
+  const isProduction = options.isProduction ?? process.env.NODE_ENV === 'production';
+  const corsOrigin = options.corsOrigin || process.env.CORS_ORIGIN || 'http://localhost:3000';
+  const jsonLimit = options.jsonLimit || '10kb';
+
+  const connectSrc: string[] = ["'self'"];
+  if (!isProduction) {
+    connectSrc.push('http://localhost:*');
+  }
+  if (options.cspConnectSrc) {
+    connectSrc.push(...options.cspConnectSrc);
+  }
+
+  return [
+    deps.helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+          fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+          imgSrc: ["'self'", 'data:', 'https:'],
+          connectSrc,
+        },
+      },
+      strictTransportSecurity: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+        preload: true,
+      },
+      crossOriginEmbedderPolicy: false,
+    }),
+    deps.cors({
+      origin: corsOrigin,
+      credentials: true,
+    }),
+    deps.compression(),
+    deps.express.json({ limit: jsonLimit }),
+    requestIdMiddleware,
+    createRequestLogger(options.logger),
+  ];
 }
 
 // ── Graceful Shutdown ───────────────────────────────────

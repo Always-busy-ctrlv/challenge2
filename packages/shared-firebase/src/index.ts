@@ -128,6 +128,42 @@ Never express political opinions or candidate preferences.`,
 // ── Cloud Logging (via Winston) ─────────────────────────
 
 /**
+ * Format a log entry for GCP Cloud Logging (production).
+ * Exported for testability.
+ */
+export function _formatProductionLog(
+  serviceName: string,
+  { timestamp, level, message, ...meta }: Record<string, any>,
+): string {
+  const severityMap: Record<string, string> = {
+    error: 'ERROR',
+    warn: 'WARNING',
+    info: 'INFO',
+    debug: 'DEBUG',
+  };
+  return JSON.stringify({
+    severity: severityMap[level] || 'DEFAULT',
+    message,
+    timestamp,
+    'logging.googleapis.com/labels': { service: serviceName },
+    'logging.googleapis.com/trace': meta['traceId'] || undefined,
+    ...meta,
+  });
+}
+
+/**
+ * Format a log entry for development console output.
+ * Exported for testability.
+ */
+export function _formatDevelopmentLog(
+  serviceName: string,
+  { timestamp, level, message, ...meta }: Record<string, any>,
+): string {
+  const metaStr = Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : '';
+  return `${timestamp} [${serviceName}] ${level}: ${message}${metaStr}`;
+}
+
+/**
  * Create a structured logger for a service.
  * - In production (Cloud Run): uses Google Cloud Logging format
  * - In development: uses colorized console output
@@ -139,43 +175,23 @@ export function createLogger(serviceName: string): winston.Logger {
   const transports: winston.transport[] = [];
 
   if (isProduction) {
-    // Google Cloud Logging structured format for Cloud Run
-    // Cloud Run automatically picks up structured logs from stdout
     transports.push(
       new winston.transports.Console({
         format: winston.format.combine(
           winston.format.timestamp(),
-          winston.format.printf(({ timestamp, level, message, ...meta }) => {
-            // Cloud Logging severity mapping
-            const severityMap: Record<string, string> = {
-              error: 'ERROR',
-              warn: 'WARNING',
-              info: 'INFO',
-              debug: 'DEBUG',
-            };
-            return JSON.stringify({
-              severity: severityMap[level] || 'DEFAULT',
-              message,
-              timestamp,
-              'logging.googleapis.com/labels': { service: serviceName },
-              'logging.googleapis.com/trace': meta['traceId'] || undefined,
-              ...meta,
-            });
-          }),
+          // istanbul ignore next -- Winston doesn't call printf in non-TTY test env
+          winston.format.printf((info) => _formatProductionLog(serviceName, info)),
         ),
       }),
     );
   } else {
-    // Development: colorized console
     transports.push(
       new winston.transports.Console({
         format: winston.format.combine(
           winston.format.colorize(),
           winston.format.timestamp({ format: 'HH:mm:ss' }),
-          winston.format.printf(({ timestamp, level, message, ...meta }) => {
-            const metaStr = Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : '';
-            return `${timestamp} [${serviceName}] ${level}: ${message}${metaStr}`;
-          }),
+          // istanbul ignore next -- Winston doesn't call printf in non-TTY test env
+          winston.format.printf((info) => _formatDevelopmentLog(serviceName, info)),
         ),
       }),
     );

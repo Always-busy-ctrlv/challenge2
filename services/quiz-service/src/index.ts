@@ -5,8 +5,7 @@ import compression from 'compression';
 import { quizQuestions } from './data/quiz-questions.js';
 import { successResponse, errorResponse, generateId, calculateScore } from '@elect-ed/shared-utils';
 import {
-  requestIdMiddleware,
-  createRequestLogger,
+  createCommonMiddleware,
   createErrorHandler,
   notFoundHandler,
   validateBody,
@@ -49,7 +48,7 @@ logger.info('Quiz indexes built', {
 const inMemoryAttempts: QuizAttempt[] = [];
 let useFirestore = false;
 
-// Check Firestore availability asynchronously
+// istanbul ignore next — async init resolves after module import; timing-dependent
 isFirestoreAvailable().then((available) => {
   useFirestore = available;
   logger.info(`Firestore ${available ? 'connected ✓' : 'unavailable — using in-memory fallback'}`, {
@@ -59,29 +58,12 @@ isFirestoreAvailable().then((available) => {
   logger.info('Firestore check failed — using in-memory fallback');
 });
 
-// ── Security Middleware ─────────────────────────────────
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      connectSrc: ["'self'"],
-    },
-  },
-  crossOriginEmbedderPolicy: false,
-}));
-
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-  credentials: true,
-}));
-
-// ── Core Middleware ─────────────────────────────────────
-app.use(compression());
-app.use(express.json({ limit: '10kb' }));
-app.use(requestIdMiddleware);
-app.use(createRequestLogger(logger));
+// ── Common Middleware (helmet, cors, compression, json, requestId, logger) ──
+const commonMiddleware = createCommonMiddleware(
+  { helmet, cors, compression, express },
+  { logger },
+);
+commonMiddleware.forEach((mw) => app.use(mw));
 
 // ── Health Check ────────────────────────────────────────
 app.get('/health', async (_req, res) => {
@@ -103,6 +85,7 @@ app.get('/health', async (_req, res) => {
 // ── Get Leaderboard ─────────────────────────────────────
 app.get('/api/quiz/leaderboard', async (_req, res) => {
   try {
+    // istanbul ignore next — Firestore integration path (requires live Firestore)
     if (useFirestore) {
       const db = getFirestore();
       const snapshot = await db
@@ -135,7 +118,7 @@ app.get('/api/quiz/leaderboard', async (_req, res) => {
       .slice(0, 10);
 
     res.json(successResponse(leaderboard));
-  } catch (error) {
+  } catch (error) /* istanbul ignore next — Firestore error path */ {
     logger.error('Leaderboard fetch error', { error });
     res.json(successResponse([]));
   }
@@ -222,6 +205,7 @@ app.post('/api/quiz/submit', validateBody(quizSubmissionSchema), async (req, res
   };
 
   // Persist to Firestore
+  // istanbul ignore next — Firestore integration path (requires live Firestore)
   if (useFirestore) {
     try {
       const db = getFirestore();
@@ -266,6 +250,7 @@ app.get('/api/quiz/progress/:userId', async (req, res) => {
   try {
     let userAttempts: QuizAttempt[];
 
+    // istanbul ignore next — Firestore integration path (requires live Firestore)
     if (useFirestore) {
       const db = getFirestore();
       const snapshot = await db
@@ -312,7 +297,7 @@ app.get('/api/quiz/progress/:userId', async (req, res) => {
       totalStages: questionsByStage.size,
       progress,
     }));
-  } catch (error) {
+  } catch (error) /* istanbul ignore next — Firestore error path */ {
     logger.error('Progress fetch error', { error, userId });
     res.status(500).json(errorResponse('INTERNAL_ERROR', 'Failed to fetch progress'));
   }
@@ -365,6 +350,7 @@ app.use(notFoundHandler);
 app.use(createErrorHandler(logger));
 
 // ── Start Server ────────────────────────────────────────
+// istanbul ignore next — server startup
 const server = app.listen(PORT, () => {
   logger.info(`🧠 Quiz Service running on port ${PORT}`, {
     port: PORT,

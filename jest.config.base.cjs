@@ -3,7 +3,9 @@ const path = require('path');
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
+  forceExit: true,
   moduleNameMapper: {
+    '^@elect-ed/shared-utils/middleware\\.js$': path.resolve(__dirname, './packages/shared-utils/src/middleware'),
     '^@elect-ed/(.*)$': path.resolve(__dirname, './packages/$1/src'),
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
@@ -12,10 +14,10 @@ module.exports = {
   coverageReporters: ['text', 'lcov'],
   coverageThreshold: {
     global: {
-      branches: 98,
-      functions: 98,
-      lines: 98,
-      statements: 98,
+      branches: 99.5,
+      functions: 99.5,
+      lines: 99.5,
+      statements: 99.5,
     },
   },
   testMatch: ['**/*.test.ts', '**/*.test.tsx'],

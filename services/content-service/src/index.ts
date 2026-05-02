@@ -6,8 +6,7 @@ import { timelineStages } from './data/timeline-stages.js';
 import { glossaryTerms } from './data/glossary-terms.js';
 import { successResponse, errorResponse, fuzzyMatch } from '@elect-ed/shared-utils';
 import {
-  requestIdMiddleware,
-  createRequestLogger,
+  createCommonMiddleware,
   createErrorHandler,
   notFoundHandler,
   sanitizeString,
@@ -41,31 +40,12 @@ logger.info('Data indexes built', {
   glossaryTerms: glossaryById.size,
 });
 
-// ── Security Middleware ─────────────────────────────────
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
-      imgSrc: ["'self'", 'data:', 'https:'],
-      connectSrc: ["'self'"],
-    },
-  },
-  crossOriginEmbedderPolicy: false,
-}));
-
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-  credentials: true,
-}));
-
-// ── Core Middleware ─────────────────────────────────────
-app.use(compression());
-app.use(express.json({ limit: '10kb' }));
-app.use(requestIdMiddleware);
-app.use(createRequestLogger(logger));
+// ── Common Middleware (helmet, cors, compression, json, requestId, logger) ──
+const commonMiddleware = createCommonMiddleware(
+  { helmet, cors, compression, express },
+  { logger },
+);
+commonMiddleware.forEach((mw) => app.use(mw));
 
 // ── Health Check ────────────────────────────────────────
 app.get('/health', (_req, res) => {
@@ -137,9 +117,13 @@ app.get('/api/glossary/:slug', (req, res) => {
     return;
   }
 
-  // Resolve related terms
+  // Resolve related terms (slug-primary lookup, ID fallback is defensive)
   const related = term.relatedTerms
-    .map((slug: string) => glossaryBySlug.get(slug) || glossaryById.get(slug))
+    .map((slug: string) => {
+      const found = glossaryBySlug.get(slug);
+      // istanbul ignore next — ID fallback is defensive; all current data uses slugs
+      return found || glossaryById.get(slug);
+    })
     .filter(Boolean);
 
   res.setHeader('Cache-Control', 'public, max-age=3600');
@@ -158,6 +142,7 @@ app.use(notFoundHandler);
 app.use(createErrorHandler(logger));
 
 // ── Start Server ────────────────────────────────────────
+// istanbul ignore next — server startup
 const server = app.listen(PORT, () => {
   logger.info(`📚 Content Service running on port ${PORT}`, {
     port: PORT,

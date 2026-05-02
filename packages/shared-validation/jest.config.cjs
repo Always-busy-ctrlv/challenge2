@@ -1,8 +1,8 @@
-const base = require('../../jest.config.base.js');
+const base = require('../../jest.config.base.cjs');
 
 module.exports = {
   ...base,
-  displayName: 'content-service',
+  displayName: 'shared-validation',
   rootDir: '.',
   testEnvironment: 'node',
   transform: {

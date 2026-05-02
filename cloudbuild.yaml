@@ -33,6 +33,7 @@ steps:
     args: ['push', '--all-tags', 'gcr.io/$PROJECT_ID/web-app']
 
   # ── 2. Deploy to Cloud Run ─────────────────────────────
+  # Content Service — IAM-authenticated (not public, only callable by API Gateway)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'Deploy Content Service'
     entrypoint: gcloud
@@ -44,7 +45,7 @@ steps:
       - 'gcr.io/$PROJECT_ID/content-service:$COMMIT_SHA'
       - '--region'
       - 'us-central1'
-      - '--allow-unauthenticated'
+      - '--no-allow-unauthenticated'
       - '--set-env-vars'
       - 'GCP_PROJECT_ID=$PROJECT_ID,NODE_ENV=production'
       - '--memory'
@@ -52,6 +53,7 @@ steps:
       - '--port'
       - '8080'
 
+  # Quiz Service — IAM-authenticated (not public, only callable by API Gateway)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'Deploy Quiz Service'
     entrypoint: gcloud
@@ -63,7 +65,7 @@ steps:
       - 'gcr.io/$PROJECT_ID/quiz-service:$COMMIT_SHA'
       - '--region'
       - 'us-central1'
-      - '--allow-unauthenticated'
+      - '--no-allow-unauthenticated'
       - '--set-env-vars'
       - 'GCP_PROJECT_ID=$PROJECT_ID,NODE_ENV=production'
       - '--memory'
@@ -71,6 +73,7 @@ steps:
       - '--port'
       - '8080'
 
+  # API Gateway — public-facing entry point
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'Deploy API Gateway'
     entrypoint: gcloud
@@ -90,6 +93,7 @@ steps:
       - '--port'
       - '8080'
 
+  # Web App — public-facing
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'Deploy Web App'
     entrypoint: gcloud

@@ -1,8 +1,8 @@
-const base = require('../../jest.config.base.js');
+const base = require('../../jest.config.base.cjs');
 
 module.exports = {
   ...base,
-  displayName: 'quiz-service',
+  displayName: 'shared-utils',
   rootDir: '.',
   testEnvironment: 'node',
   transform: {

@@ -1,8 +1,8 @@
-const base = require('../../jest.config.base.js');
+const base = require('../../jest.config.base.cjs');
 
 module.exports = {
   ...base,
-  displayName: 'shared-utils',
+  displayName: 'api-gateway',
   rootDir: '.',
   testEnvironment: 'node',
   transform: {
